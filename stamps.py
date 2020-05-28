@@ -5,7 +5,7 @@ from deepscan import remote_data
 import pandas as pd
 from astropy.nddata import Cutout2D
 from astropy.io import fits
-from astropy.visualization import (imshow_norm, MinMaxInterval, SqrtStretch)
+from astropy.visualization import (imshow_norm, MinMaxInterval, SqrtStretch, simple_norm)
 import os
 
 ##############################################
@@ -15,7 +15,7 @@ class EllipseBBox():
     Outputs a stamp for each source detected in an image
     """
 
-    def __init__(self, data, ps, mzero, SBthresh=None):
+    def __init__(self, data, ps, mzero, sizethresh, SBthresh=None):
         """
         Applies DeepScan algorithm to "data" and retrieves the values for each source detected
         --------------
@@ -26,46 +26,26 @@ class EllipseBBox():
 
         mzero = float / magnitude zero point
 
-        SBthresh = float / threshold for the minimum surface brightness of the sources to be detected
+        sizethresh = float / threshold for minimum stamp side size [pixels?]
+
+        SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
         """ 
-
-        # running DeepScan
-        result = DeepScan(data)
-        df = result["df"]
-
-        # excluding data bellow a certain surface brightness threshold
-        df["SB"] = self._SB(df["flux"].values, df["area"].values, ps, mzero)
-        if SBthresh == None:
-            SBthresh = df["SB"].mean() # use the mean of the SB as the threshold
-        df = df[df["SB"] <= SBthresh]
-        df.reset_index(inplace=True)
-
-        # variables to be used for finding the size of each source's stamp
-        x = df["xcen"].values
-        y = df["ycen"].values
-
-        # apply _get_ellipse_bb, outputs new df with the padding already considered
-        min_x, max_x = self._get_ellipse_bb(x, y, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
-        box_df = pd.DataFrame({"min_x": min_x, "max_x": max_x, "xcen": x, "ycen": y}).dropna()
-
-        # apply _crop, outputs images (first print, if its working output them to a directory)
-        stamp = self._crop(data, box_df)
-        #plt.imshow(np.arcsinh(data), cmap='binary', vmin=-0.5, vmax=3, origin="lower")
-        
-        # astropy plot test
-        imshow_norm(np.arcsinh(data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
-
-        for el in stamp:
-            el.plot_on_original(color='red')
-        plt.show()
+        self.data = data
+        self.ps = ps
+        self.mzero = mzero
+        self.sizethresh = sizethresh
+        self.SBthresh = SBthresh
 
 
-    def _SB(self, flux, area, ps, mzero):
+    #def _get_fits(self, data): ???
+
+
+    def _SB(self, flux, area):
         """
         Computes the Surface Brightness
         """
-        area_arcsec = area*ps*ps
-        return -2.5*np.log10(flux) + 2.5*np.log10(area_arcsec) + mzero
+        area_arcsec = area*self.ps*self.ps
+        return -2.5*np.log10(flux) + 2.5*np.log10(area_arcsec) + self.mzero
 
 
     def _get_ellipse_bb(self, x, y, major, minor, angle_deg):
@@ -78,30 +58,86 @@ class EllipseBBox():
         return min_x, max_x
 
 
-    def _crop(self, data, box_df): 
+    def _crop(self, box_df, sizethresh): 
         """
         Crop "data" according to the positions in box_df, outputs individual cutouts
         """
         cutout = []
         for index, row in box_df.iterrows():
-            del index
             size = np.linalg.norm(row["max_x"] - row["min_x"]) * 4
-            stamp = Cutout2D(data, position=(row["xcen"], row["ycen"]), size=(size,size), copy=True) 
-            cutout.append(stamp)
+            
+            if size >= sizethresh:
+                stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(size,size), copy=True) 
+                cutout.append(stamp)
 
         return cutout
 
 
-    def _export_imgs(self, stamp):
+    def get_stamps(self):
+        """
+        Get the sources in the image as stamps
+        """
+        # running DeepScan
+        result = DeepScan(self.data)
+        df = result["df"]
+
+        # excluding data bellow a certain surface brightness threshold
+        df["SB"] = self._SB(df["flux"].values, df["area"].values)
+        
+        if self.SBthresh == None:
+            SBthresh = df["SB"].mean() + 0.5
+        else:
+            SBthresh = self.SBthresh
+
+        df = df[df["SB"] <= SBthresh]
+        df.reset_index(inplace=True)
+
+        # variables to be used for finding the size of each source's stamp
+        x = df["xcen"].values
+        y = df["ycen"].values
+
+        # apply _get_ellipse_bb, outputs new df with the padding already considered
+        min_x, max_x = self._get_ellipse_bb(x, y, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
+        box_df = pd.DataFrame({"min_x": min_x, "max_x": max_x, "xcen": x, "ycen": y}).dropna()
+
+        # apply _crop to extract stamps
+        stamps = self._crop(box_df, sizethresh)
+
+        return stamps
+
+
+    def show_stamps(self):
+        """
+        Detects stamps and show where they are on the original image
+        """
+        stamps = self.get_stamps()
+        
+        imshow_norm(np.arcsinh(self.data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
+        plt.colorbar()
+
+        for el in stamps:
+            el.plot_on_original(color='red')
+        plt.show()
+
+
+    def save_stamps(self):
+        """
+        Save stamps to a newly created "stamps" directory
+        """        
+        pwd = os.getcwd()
+        os.mkdir(os.path.join(pwd, "stamps"))
+
+
+        stamps = self.get_stamps()
+        
         pass
 
 ##############################################
 
-def extract_stamps(ps, mzero):
+def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
     """
     Take .fits files in the folder and extract its stamps
     """
-
     pwd = os.getcwd()
     path_imgs = os.path.join(pwd, "fits-files")
     filenames = os.listdir(path_imgs)
@@ -115,11 +151,12 @@ def extract_stamps(ps, mzero):
         hdul = fits.open(fits_image_filename)
         img_norm = hdul[0].data
         data = img_norm.byteswap().newbyteorder()
-        EllipseBBox(data, ps, mzero)
+        EllipseBBox(data, ps, mzero, sizethresh).show_stamps()
 
 
 # values for DECAM (r-band)
 ps = 0.27
 mzero = 31.395
+sizethresh = 15
 
-extract_stamps(ps, mzero)
+extract_stamps(ps, mzero, sizethresh)
