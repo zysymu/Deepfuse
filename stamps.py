@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from deepscan.deepscan import DeepScan
-from deepscan import remote_data
 import pandas as pd
 from astropy.nddata import Cutout2D
 from astropy.io import fits
@@ -98,7 +97,7 @@ class EllipseBBox():
         box_df = pd.DataFrame({"min_x": min_x, "max_x": max_x, "xcen": x, "ycen": y}).dropna()
 
         # apply _crop to extract stamps
-        stamps = self._crop(box_df, sizethresh)
+        stamps = self._crop(box_df, self.sizethresh)
 
         return stamps
 
@@ -117,7 +116,7 @@ class EllipseBBox():
         plt.show()
 
 
-    def save_stamps(self, hdu, dir_name="stamps"): # would this even work from inside the class??
+    def save_stamps(self, dir_name="stamps"): # would this even work from inside the class??
         """
         Save stamps to a newly created directory
         """        
@@ -136,31 +135,3 @@ class EllipseBBox():
 
 
 ##############################################
-
-def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
-    """
-    Take .fits files in the folder and extract its stamps
-    """
-    pwd = os.getcwd()
-    path_imgs = os.path.join(pwd, "fits-files")
-    filenames = os.listdir(path_imgs)
-
-    for filename in filenames:
-        folder = os.path.join(path_imgs, filename)
-        img = filename + "_r_img.fits"
-        fits_image_filename = os.path.join(folder,img) # path to .fits image
-        print(filename)
-
-        hdul = fits.open(fits_image_filename)
-        img_norm = hdul[0].data
-        data = img_norm.byteswap().newbyteorder()
-        EllipseBBox(data, ps, mzero, sizethresh).save_stamps(hdu=hdul, dir_name=filename)
-        # IT WOOOOORKS!!!!!!!!! :DDD
-
-
-# values for DECAM (r-band)
-ps = 0.27
-mzero = 31.395
-sizethresh = 15
-
-extract_stamps(ps, mzero, sizethresh)
