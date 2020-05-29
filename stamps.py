@@ -37,9 +37,6 @@ class EllipseBBox():
         self.SBthresh = SBthresh
 
 
-    #def _get_fits(self, data): ???
-
-
     def _SB(self, flux, area):
         """
         Computes the Surface Brightness
@@ -120,17 +117,20 @@ class EllipseBBox():
         plt.show()
 
 
-    def save_stamps(self):
+    def save_stamps(self, hdu, dir_name="stamps"): # would this even work from inside the class??
         """
-        Save stamps to a newly created "stamps" directory
+        Save stamps to a newly created directory
         """        
         pwd = os.getcwd()
-        os.mkdir(os.path.join(pwd, "stamps"))
-
+        dir_stamps = os.path.join(pwd, dir_name)
+        os.mkdir(dir_stamps)
 
         stamps = self.get_stamps()
-        
-        pass
+        for index, cutout in enumerate(stamps):
+            hdu.data = cutout.data
+            cutout_filename = os.path.join(dir_stamps, str(index) + ".fits")
+            hdu.writeto(cutout_filename, overwrite=True)
+
 
 ##############################################
 
@@ -151,7 +151,8 @@ def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
         hdul = fits.open(fits_image_filename)
         img_norm = hdul[0].data
         data = img_norm.byteswap().newbyteorder()
-        EllipseBBox(data, ps, mzero, sizethresh).show_stamps()
+        EllipseBBox(data, ps, mzero, sizethresh).save_stamps(hdu=hdul, dir_name=filename)
+        # IT WOOOOORKS!!!!!!!!! :DDD
 
 
 # values for DECAM (r-band)
