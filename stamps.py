@@ -127,9 +127,12 @@ class EllipseBBox():
 
         stamps = self.get_stamps()
         for index, cutout in enumerate(stamps):
-            hdu.data = cutout.data
+            hdu = fits.PrimaryHDU(cutout.data)
+            hdul = fits.HDUList([hdu])
+            #hdu.data = cutout.data
             cutout_filename = os.path.join(dir_stamps, str(index) + ".fits")
-            hdu.writeto(cutout_filename, overwrite=True)
+            #hdu.writeto(cutout_filename, overwrite=True)
+            hdul.writeto(cutout_filename)
 
 
 ##############################################
