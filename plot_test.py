@@ -24,7 +24,8 @@ def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
         hdul = fits.open(fits_image_filename)
         img_norm = hdul[0].data
         data = img_norm.byteswap().newbyteorder()
-        EllipseBBox(data, ps, mzero, sizethresh).save_stamps(dir_name=filename)
+        #EllipseBBox(data, ps, mzero, sizethresh).save_stamps(dir_name=filename)
+        EllipseBBox(data, ps, mzero, sizethresh).show_stamps(title=filename)
         # IT WOOOOORKS!!!!!!!!! :DDD
 
 
@@ -32,8 +33,9 @@ def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
 ps = 0.27
 mzero = 31.395
 sizethresh = 15
+#SBthresh = 22
 
-extract_stamps(ps, mzero, sizethresh)
+extract_stamps(ps, mzero, sizethresh)#, SBthresh)
 
 
 
@@ -47,6 +49,7 @@ for img in os.listdir(folder):
 
     data = img_norm.byteswap().newbyteorder()
 
+    #plt.imshow(np.arcsinh(data), origin='lower', vmin=8., vmax=9., cmap="binary_r")
     imshow_norm(np.arcsinh(data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
     plt.colorbar()
 

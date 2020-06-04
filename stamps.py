@@ -25,7 +25,7 @@ class EllipseBBox():
 
         mzero = float / magnitude zero point
 
-        sizethresh = float / threshold for minimum stamp side size [pixels?]
+        sizethresh = float / threshold for minimum stamp side size [pixels]
 
         SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
         """ 
@@ -81,11 +81,11 @@ class EllipseBBox():
         df["SB"] = self._SB(df["flux"].values, df["area"].values)
         
         if self.SBthresh == None:
-            SBthresh = df["SB"].mean() + 0.5
+            SBthresh = df["SB"].mean() - 2
         else:
             SBthresh = self.SBthresh
 
-        df = df[df["SB"] <= SBthresh]
+        df = df[df["SB"] >= SBthresh]
         df.reset_index(inplace=True)
 
         # variables to be used for finding the size of each source's stamp
@@ -102,13 +102,18 @@ class EllipseBBox():
         return stamps
 
 
-    def show_stamps(self):
+    def show_stamps(self, title=""):
         """
         Detects stamps and show where they are on the original image
         """
         stamps = self.get_stamps()
         
+        # make if-else for min n max values
+        # take the arcsinh of a certain value in the df and maybe be get the 25th and 75th percentile?
+
         imshow_norm(np.arcsinh(self.data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
+        #plt.imshow(np.arcsinh(self.data), origin='lower', vmin=7.93, vmax=8., cmap="binary_r")
+        plt.title(title)
         plt.colorbar()
 
         for el in stamps:
@@ -116,7 +121,7 @@ class EllipseBBox():
         plt.show()
 
 
-    def save_stamps(self, dir_name="stamps"): # would this even work from inside the class??
+    def save_stamps(self, dir_name="stamps"):
         """
         Save stamps to a newly created directory
         """        
