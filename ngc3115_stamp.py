@@ -13,47 +13,6 @@ from astropy.nddata.utils import extract_array
 from astropy.nddata.utils import overlap_slices
 
 
-def extract_stamps(ps, mzero, sizethresh, SBthresh=None):
-    """
-    Take .fits files in the folder and extract its stamps
-    """
-    pwd = os.getcwd()
-    path_imgs = os.path.join(pwd, "ngc3115")
-    filenames = os.listdir(path_imgs)
-
-    for filename in filenames:
-        #if filename[-12:] == "r_v2.fits.fz":
-        if filename == "c4d_170216_045800_osw_r_v2.fits.fz": # testing for just one image
-            #print("filename:" , filename)
-
-            fits_image_filename = os.path.join(path_imgs, filename)
-            hdul = fits.open(fits_image_filename, memmap=True)
-            hdul.info()
-
-            #for i in range(1,len(hdul)):
-
-
-
-            img = hdul[5].data
-            hdul.close()
-            del hdul[5].data
-            print(img)
-
-            imshow_norm(np.arcsinh(img), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
-            plt.title(filename)
-            plt.show()
-            break
-
-
-# values for DECAM (r-band)
-ps = 0.27
-mzero = 31.395
-sizethresh = 30
-
-#extract_stamps(ps, mzero, sizethresh)
-
-
-
 def get_candidate(input_file, output_file, ra, dec, size):
     """
     Extract a stamp from "input_file" according to its WCS positions. From: https://github.com/rodff/LSB_galaxies/blob/master/cutout_decam_image.ipynb
@@ -118,7 +77,8 @@ def get_candidate(input_file, output_file, ra, dec, size):
 
 ###########################################
 
-def make_pieces(img_norm, cutout_size):
+
+def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh):
     """
 
     Parameters
@@ -127,6 +87,15 @@ def make_pieces(img_norm, cutout_size):
 
     cutout_size = int 
         size of the cutout
+
+    ps = float
+        pixel scale
+
+    mzero = float
+        magnitude zero point
+
+    sizethresh = int
+        size threshold for detected sources
     """
     cutout = (cutout_size,cutout_size) 
     num_images_per_line = ceil(img_norm.shape[0]/cutout_size)
@@ -157,7 +126,7 @@ def make_pieces(img_norm, cutout_size):
             #plt.show()
 
 
-            EllipseBBox(small, ps, mzero, sizethresh=0).show_stamps(title="center = " + str(cen))
+            EllipseBBox(small, ps, mzero, sizethresh).show_stamps(title="center = " + str(cen))
             # IT WORKS!!!!!!! 
                    
             row_pos += cutout_size
@@ -173,6 +142,11 @@ def make_pieces(img_norm, cutout_size):
 folder = "/home/marcostidball/ic-astro/PROJECT/ngc3115"
 img = "c4d_170217_075805_osi_g_v2.fits.fz"
 
+# values for DECAM r-band
+ps = 0.27
+mzero = 31.395
+sizethresh = 0
+
 fits_image_filename = os.path.join(folder,img) # path to .fits image
     
 hdul = fits.open(fits_image_filename, memmap=True)
@@ -180,4 +154,4 @@ hdul = fits.open(fits_image_filename, memmap=True)
 img_norm = hdul[5].data 
 hdul.close()
     
-make_pieces(img_norm, 300)
+make_pieces(img_norm, 300, ps, mzero, sizethresh)
