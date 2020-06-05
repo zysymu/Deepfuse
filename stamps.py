@@ -60,7 +60,7 @@ class EllipseBBox():
         """
         cutout = []
         for index, row in box_df.iterrows():
-            size = np.linalg.norm(row["max_x"] - row["min_x"]) * 4
+            size = np.linalg.norm(row["max_x"] - row["min_x"]) * 10
             
             if size >= sizethresh:
                 stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(size,size), copy=True) 
@@ -108,11 +108,8 @@ class EllipseBBox():
         """
         stamps = self.get_stamps()
         
-        # make if-else for min n max values
-        # take the arcsinh of a certain value in the df and maybe be get the 25th and 75th percentile?
-
-        imshow_norm(np.arcsinh(self.data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
-        #plt.imshow(np.arcsinh(self.data), origin='lower', vmin=7.93, vmax=8., cmap="binary_r")
+        avg = np.mean(np.arcsinh(self.data))
+        plt.imshow(np.arcsinh(self.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
         plt.title(title)
         plt.colorbar()
 
@@ -133,7 +130,6 @@ class EllipseBBox():
         for index, cutout in enumerate(stamps):
             hdu = fits.PrimaryHDU(cutout.data)
             hdul = fits.HDUList([hdu])
-            #hdu.data = cutout.data
             cutout_filename = os.path.join(dir_stamps, str(index) + ".fits")
             #hdu.writeto(cutout_filename, overwrite=True)
             hdul.writeto(cutout_filename)

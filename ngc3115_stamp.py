@@ -78,30 +78,31 @@ def get_candidate(input_file, output_file, ra, dec, size):
 ###########################################
 
 
-def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh):
+def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh, dir_name):
     """
 
     Parameters
     -------
     img_norm = 2D numpy array
 
-    cutout_size = int 
-        size of the cutout
+    cutout_size = int - size of the cutout
 
-    ps = float
-        pixel scale
+    ps = float - pixel scale
 
-    mzero = float
-        magnitude zero point
+    mzero = float - magnitude zero point
 
-    sizethresh = int
-        size threshold for detected sources
+    sizethresh = int - size threshold for detected sources
+
+    dir_name = str - name of the directory where the stamps are going to be stored
     """
+    
+    os.mkdir(dir_name)
+    
     cutout = (cutout_size,cutout_size) 
     num_images_per_line = ceil(img_norm.shape[0]/cutout_size)
 
     col_pos = ceil(cutout_size/2)
-    
+
     for i in range(num_images_per_line): # changes the position of the centre; column
         row_pos = ceil(cutout_size/2)
         
@@ -110,26 +111,11 @@ def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh):
             print(cen)
             
             small = extract_array(img_norm, cutout, cen)
-            
-            # ???
-
-            # there are no white spaces but sometimes the slice size is too small for DeepScan to run
-            # also it seems that it doesn't detect a lot of stuff
-            #slices_large, slices_small = overlap_slices(img_norm.shape, small.shape, cen)
-            #data = img_norm[slices_large].byteswap().newbyteorder()
-
-            # white spaces around the borders of the image if the cutout isn't perfect but DeepScan usually works 
-            #data = small.byteswap().newbyteorder() 
-
-            # test showing image IT WORKS!!!!!!
-            #imshow_norm(np.arcsinh(data), origin='lower', interval=MinMaxInterval(), stretch=SqrtStretch(), cmap="binary_r")
-            #plt.show()
-
-
             EllipseBBox(small, ps, mzero, sizethresh).show_stamps(title="center = " + str(cen))
+            #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(cen)))
             # IT WORKS!!!!!!! 
                    
-            row_pos += cutout_size
+            row_pos += cutout_size         
 
         col_pos += cutout_size
 
@@ -145,7 +131,7 @@ img = "c4d_170217_075805_osi_g_v2.fits.fz"
 # values for DECAM r-band
 ps = 0.27
 mzero = 31.395
-sizethresh = 0
+sizethresh = 50
 
 fits_image_filename = os.path.join(folder,img) # path to .fits image
     
@@ -153,5 +139,5 @@ hdul = fits.open(fits_image_filename, memmap=True)
 #img_norm = hdul[0].data 
 img_norm = hdul[5].data 
 hdul.close()
-    
-make_pieces(img_norm, 300, ps, mzero, sizethresh)
+
+make_pieces(img_norm, 500, ps, mzero, sizethresh, "stamps")
