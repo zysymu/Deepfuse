@@ -78,7 +78,7 @@ def get_candidate(input_file, output_file, ra, dec, size):
 ###########################################
 
 
-def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh, dir_name):
+def make_pieces(img_norm, cutout_size, border_size, ps, mzero, sizethresh, dir_name):
     """
 
     Parameters
@@ -86,6 +86,8 @@ def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh, dir_name):
     img_norm = 2D numpy array
 
     cutout_size = int - size of the cutout
+
+    border_size = float - size of the border, from 0. to 1. (times cutout_size)
 
     ps = float - pixel scale
 
@@ -96,28 +98,53 @@ def make_pieces(img_norm, cutout_size, ps, mzero, sizethresh, dir_name):
     dir_name = str - name of the directory where the stamps are going to be stored
     """
     
-    os.mkdir(dir_name)
+    #os.mkdir(dir_name)
     
-    cutout = (cutout_size,cutout_size) 
+    # stamps
+    cutout = (cutout_size, cutout_size) 
     num_images_per_line = ceil(img_norm.shape[0]/cutout_size)
 
-    col_pos = ceil(cutout_size/2)
+    # borders
+    border_vertical = (cutout_size, cutout_size*border_size)
+    border_horizontal = (cutout_size*border_size, cutout_size)
 
-    for i in range(num_images_per_line): # changes the position of the centre; column
-        row_pos = ceil(cutout_size/2)
-        
-        for j in range(num_images_per_line): # line
+    row_pos = ceil(cutout_size/2)
+    border_row_pos = cutout_size
+    
+    for i in range(num_images_per_line): # changes the row
+        col_pos = ceil(cutout_size/2)
+        border_col_pos = cutout_size
+
+        for j in range(num_images_per_line): # changes the column
             cen = (row_pos, col_pos)
-            print(cen)
+            border_cen_vertical = (row_pos, border_col_pos)
+            border_cen_horizontal = (border_row_pos, col_pos)
             
+            # cutout
             small = extract_array(img_norm, cutout, cen)
             EllipseBBox(small, ps, mzero, sizethresh).show_stamps(title="center = " + str(cen))
             #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(cen)))
-            # IT WORKS!!!!!!! 
-                   
-            row_pos += cutout_size         
 
-        col_pos += cutout_size
+            # right border
+            if j != num_images_per_line: # excludes the edge scenario
+                small = extract_array(img_norm, border_vertical, border_cen_vertical)
+                _, slices_small = overlap_slices(img_norm.shape, small.shape, border_cen_vertical)
+                EllipseBBox(small[slices_small], ps, mzero, sizethresh).show_stamps(title="border center = " + str(border_cen_vertical))
+                #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_vertical)))
+
+            # upper border
+            if i != num_images_per_line:
+                small = extract_array(img_norm, border_horizontal, border_cen_horizontal)
+                _, slices_small = overlap_slices(img_norm.shape, small.shape, border_cen_horizontal)
+                EllipseBBox(small[slices_small], ps, mzero, sizethresh).show_stamps(title="border center = " + str(border_cen_horizontal))
+                #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_horizontal)))
+
+
+            col_pos += cutout_size
+            border_col_pos += cutout_size
+
+        row_pos += cutout_size
+        border_row_pos += cutout_size
 
 
 # 300x300 image
@@ -140,4 +167,4 @@ hdul = fits.open(fits_image_filename, memmap=True)
 img_norm = hdul[5].data 
 hdul.close()
 
-make_pieces(img_norm, 500, ps, mzero, sizethresh, "stamps")
+make_pieces(img_norm, 500, 0.3, ps, mzero, sizethresh, "stamps")
