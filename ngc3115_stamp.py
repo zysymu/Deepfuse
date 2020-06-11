@@ -1,6 +1,7 @@
 from stamps import EllipseBBox
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from astropy.nddata import Cutout2D
 from astropy.io import fits
 from astropy import wcs
@@ -11,6 +12,7 @@ import os
 from math import ceil
 from astropy.nddata.utils import extract_array
 from astropy.nddata.utils import overlap_slices
+import time
 
 
 def get_candidate(input_file, output_file, ra, dec, size):
@@ -97,6 +99,10 @@ def make_pieces(img_norm, cutout_size, border_size, ps, mzero, sizethresh, dir_n
 
     dir_name = str - name of the directory where the stamps are going to be stored
     """
+
+    """
+    borders
+    """
     
     #os.mkdir(dir_name)
     
@@ -110,6 +116,8 @@ def make_pieces(img_norm, cutout_size, border_size, ps, mzero, sizethresh, dir_n
 
     row_pos = ceil(cutout_size/2)
     border_row_pos = cutout_size
+
+    frames = []
     
     for i in range(num_images_per_line): # changes the row
         col_pos = ceil(cutout_size/2)
@@ -123,35 +131,47 @@ def make_pieces(img_norm, cutout_size, border_size, ps, mzero, sizethresh, dir_n
             # cutout
             small = extract_array(img_norm, cutout, cen)
             EllipseBBox(small, ps, mzero, sizethresh).show_stamps(title="center = " + str(cen))
-            #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(cen)))
+            #df = EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(cen)))
+            #frames.append(df)
 
             # right border
             if j != num_images_per_line: # excludes the edge scenario
                 small = extract_array(img_norm, border_vertical, border_cen_vertical)
                 _, slices_small = overlap_slices(img_norm.shape, small.shape, border_cen_vertical)
                 EllipseBBox(small[slices_small], ps, mzero, sizethresh).show_stamps(title="border center = " + str(border_cen_vertical))
-                #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_vertical)))
+                #df = EllipseBBox(small[slices_small], ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_vertical)))
+                #frames.append(df)
 
             # upper border
             if i != num_images_per_line:
                 small = extract_array(img_norm, border_horizontal, border_cen_horizontal)
                 _, slices_small = overlap_slices(img_norm.shape, small.shape, border_cen_horizontal)
                 EllipseBBox(small[slices_small], ps, mzero, sizethresh).show_stamps(title="border center = " + str(border_cen_horizontal))
-                #EllipseBBox(small, ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_horizontal)))
-
+                #df = EllipseBBox(small[slices_small], ps, mzero, sizethresh).save_stamps(os.path.join(dir_name,str(border_cen_horizontal)))
+                #frames.append(df)
 
             col_pos += cutout_size
             border_col_pos += cutout_size
 
         row_pos += cutout_size
         border_row_pos += cutout_size
+        break
+
+    #result = pd.concat(frames)
+    #result.reset_index(drop=True, inplace=True)
+    #result.to_csv(os.path.join(dir_name, "catalog.csv"), index=False)
+
+    """
+    overlap
+    """
+    
 
 
 # 300x300 image
 #folder = "/home/marcostidball/ic-astro/PROJECT/fits-files/candidate_011"
 #img = "candidate_011_r_img.fits"
 
-# big image   
+# big image 
 folder = "/home/marcostidball/ic-astro/PROJECT/ngc3115"
 img = "c4d_170217_075805_osi_g_v2.fits.fz"
 

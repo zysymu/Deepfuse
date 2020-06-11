@@ -54,21 +54,6 @@ class EllipseBBox():
         return min_x, max_x
 
 
-    def _crop(self, box_df, sizethresh): 
-        """
-        Crop "data" according to the positions in box_df, outputs individual cutouts
-        """
-        cutout = []
-        for index, row in box_df.iterrows():
-            size = np.linalg.norm(row["max_x"] - row["min_x"]) * 10
-            
-            if size >= sizethresh:
-                stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(size,size), copy=True) 
-                cutout.append(stamp)
-
-        return cutout
-
-
     def get_stamps(self):
         """
         Get the sources in the image as stamps
@@ -76,37 +61,40 @@ class EllipseBBox():
         # running DeepScan
         result = DeepScan(self.data)
         df = result["df"]
+        df.dropna(inplace=True)
 
         # excluding data bellow a certain surface brightness threshold
         df["SB"] = self._SB(df["flux"].values, df["area"].values)
-        
         if self.SBthresh == None:
             SBthresh = df["SB"].mean() - 2
         else:
             SBthresh = self.SBthresh
 
-        df = df[df["SB"] >= SBthresh]
+        #df = df[df["SB"] >= SBthresh]
+        df.drop(df[df["SB"] < SBthresh].index, inplace=True)
+
+        # apply _get_ellipse_bb to find values bounding box extreme points
+        df["min_x"], df["max_x"] = self._get_ellipse_bb(df["xcen"].values, df["ycen"].values, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
+
+        # crop "data" according to the positions in df, outputs individual cutouts
+        df["size"] = (df["max_x"].values - df["min_x"].values) * 10
+        #print(df)
+        df.drop(df[df["size"] < self.sizethresh].index, inplace=True)
         df.reset_index(inplace=True)
-
-        # variables to be used for finding the size of each source's stamp
-        x = df["xcen"].values
-        y = df["ycen"].values
-
-        # apply _get_ellipse_bb, outputs new df with the padding already considered
-        min_x, max_x = self._get_ellipse_bb(x, y, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
-        box_df = pd.DataFrame({"min_x": min_x, "max_x": max_x, "xcen": x, "ycen": y}).dropna()
-
-        # apply _crop to extract stamps
-        stamps = self._crop(box_df, self.sizethresh)
-
-        return stamps
+        
+        cutout = []        
+        for index, row in df.iterrows():
+            stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(row["size"],row["size"]), copy=True) 
+            cutout.append(stamp)
+        
+        return cutout, df
 
 
     def show_stamps(self, title=""):
         """
         Detects stamps and show where they are on the original image
         """
-        stamps = self.get_stamps()
+        stamps, df = self.get_stamps()
         
         avg = np.mean(np.arcsinh(self.data))
         plt.imshow(np.arcsinh(self.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
@@ -115,6 +103,7 @@ class EllipseBBox():
 
         for el in stamps:
             el.plot_on_original(color='red')
+        print(df)
         plt.show()
 
 
@@ -126,13 +115,16 @@ class EllipseBBox():
         dir_stamps = os.path.join(pwd, dir_name)
         os.mkdir(dir_stamps)
 
-        stamps = self.get_stamps()
+        stamps, df = self.get_stamps()
         for index, cutout in enumerate(stamps):
             hdu = fits.PrimaryHDU(cutout.data)
             hdul = fits.HDUList([hdu])
             cutout_filename = os.path.join(dir_stamps, str(index) + ".fits")
             #hdu.writeto(cutout_filename, overwrite=True)
             hdul.writeto(cutout_filename)
+        
+        df.to_csv(os.path.join(dir_stamps, "catalog.csv"), index=False)
+        return df
 
 
 ##############################################
