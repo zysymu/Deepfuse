@@ -7,7 +7,6 @@ from astropy.io import fits
 from astropy import wcs
 from astropy.coordinates import Angle
 import astropy.units as u
-from astropy.visualization import (imshow_norm, MinMaxInterval, SqrtStretch, simple_norm)
 import os
 from math import ceil
 from astropy.nddata.utils import extract_array
