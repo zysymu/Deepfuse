@@ -4,31 +4,33 @@ from deepscan.deepscan import DeepScan
 import pandas as pd
 from astropy.nddata import Cutout2D
 from astropy.io import fits
-from astropy.visualization import (imshow_norm, MinMaxInterval, SqrtStretch, simple_norm)
 import os
+from astropy import wcs
+from astropy.coordinates import Angle
+import astropy.units as u
+
 
 ##############################################
 
 class EllipseBBox():
     """
     Outputs a stamp for each source detected in an image
+
+    -------
+    Input:
+    
+    data = 2D float array / image 
+
+    ps = float / pixel scale [arcsec per pixel] 
+
+    mzero = float / magnitude zero point
+
+    sizethresh = float / threshold for minimum stamp side size [pixels]
+
+    SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
     """
 
     def __init__(self, data, ps, mzero, sizethresh, SBthresh=None):
-        """
-        Applies DeepScan algorithm to "data" and retrieves the values for each source detected
-        --------------
-        Input:
-        data = 2D float array / image 
-
-        ps = float / pixel scale [arcsec per pixel] 
-
-        mzero = float / magnitude zero point
-
-        sizethresh = float / threshold for minimum stamp side size [pixels]
-
-        SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
-        """ 
         self.data = data
         self.ps = ps
         self.mzero = mzero
@@ -128,3 +130,66 @@ class EllipseBBox():
 
 
 ##############################################
+
+
+def get_candidate(input_file, output_file, ra, dec, size):
+    """
+    Extract a stamp from "input_file" according to its WCS positions. From: https://github.com/rodff/LSB_galaxies/blob/master/cutout_decam_image.ipynb
+    
+    -------
+    Input:
+
+    input_file = string / name of .fits file (original image)
+
+    output_file = string / name of output .fits file (extracted candidate)
+
+    ra = astropy.coordinates.Angle / right ascension of the candidate
+
+    dec = astropy.coordinates.Angle / declination of the candidate
+
+    size = int / lenght of the stamp 
+    """
+
+    f = fits.open(input_file, memmap=True)
+    orig_header = f[0].header # MAIN info stuff
+
+    for i in range(1, len(f)): # go over the hdul 
+        data_ext = f[i].data # image data        
+        w_ext = wcs.WCS(f[i].header) # gets WCS stuff of the image
+        
+        # perform the core WCS transformation from pixel to world coordinates:
+        ra_i, dec_i = w_ext.wcs_pix2world(0,0,0) # gets WCS for start of the image
+        ra_f, dec_f = w_ext.wcs_pix2world(data_ext.shape[0], data_ext.shape[1], 0) # gets WCS for end of the image
+        # wcs_pix2world inputs: an array for each axis, followed by an origin
+
+        if (ra_f < ra < ra_i) and (dec_i < dec < dec_f): # makes sure the values of ra and dec are inside the image (assertion)
+            scidata = f[i].data # image data (again?)
+            w = wcs.WCS(f[i].header) # WCS stuff (again?)
+
+    position = w.wcs_world2pix(ra, dec, 0) # gets position in pixels
+
+    cutout = Cutout2D(scidata, position, size, wcs=w) # employs cutout retaining wcs info
+    header_new = cutout.wcs.to_header() # gives header info to cutout
+
+    # hdu config:
+    hdu_p = fits.PrimaryHDU(header=orig_header)
+    hdu_i = fits.ImageHDU(cutout.data, header=header_new)
+    hdulist = fits.HDUList([hdu_p,hdu_i])
+    
+    hdulist.writeto(output_file, overwrite=True)
+
+
+#input_file= 'ngc3115/c4d_170217_075805_osi_g_v2.fits.fz'
+#output_file = 'candidate_002_g.fits'
+
+# position of the candidate in the image?, in pixels: (8004,6987)
+#ra = Angle('10:06:37.0581 hours').degree
+#dec = Angle('-8:29:07.129 degrees').degree
+
+# cutout size
+#size = 100
+
+#get_candidate(input_file, output_file)
+
+
+###########################################
