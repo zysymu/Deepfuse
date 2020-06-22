@@ -15,18 +15,13 @@ import astropy.units as u
 class EllipseBBox():
     """
     Outputs a stamp for each source detected in an image
-
     -------
     Input:
     
     data = 2D float array / image 
-
     ps = float / pixel scale [arcsec per pixel] 
-
     mzero = float / magnitude zero point
-
     sizethresh = float / threshold for minimum stamp side size [pixels]
-
     SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
     """
 
@@ -138,15 +133,10 @@ def get_candidate(input_file, output_file, ra, dec, size):
     
     -------
     Input:
-
     input_file = string / name of .fits file (original image)
-
     output_file = string / name of output .fits file (extracted candidate)
-
     ra = astropy.coordinates.Angle / right ascension of the candidate
-
     dec = astropy.coordinates.Angle / declination of the candidate
-
     size = int / lenght of the stamp 
     """
 

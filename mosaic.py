@@ -22,13 +22,9 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
     
     -------
     Input:
-
     filename = str / path to .fits image
-
     cutout_size = int / size of the cutout
-
     overlap_percentage = float / percentage of overlap (0. = completely new cutout, no overlap; 1. = same cutout, total overlap)
-
     dir_name = str / name of the directory where the stamps are going to be stored
     
     """
@@ -37,10 +33,10 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
     orig_header = f[0].header # PrimaryHDU object
 
     print("finding wcs...")
-    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:10]) # has only CompImageHDU files
+    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:4]) # has only CompImageHDU files
 
     print("creating mosaic...")
-    array, footprint = reproject_and_coadd(f[1:10], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
+    array, footprint = reproject_and_coadd(f[1:4], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
 
     #plt.imshow(np.arcsinh(array), origin="lower", vmin=8.33, vmax=8.38)
     #plt.show()
