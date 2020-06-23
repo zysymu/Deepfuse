@@ -33,10 +33,10 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
     orig_header = f[0].header # PrimaryHDU object
 
     print("finding wcs...")
-    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:4]) # has only CompImageHDU files
+    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:3]) # has only CompImageHDU files
 
     print("creating mosaic...")
-    array, footprint = reproject_and_coadd(f[1:4], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
+    array, footprint = reproject_and_coadd(f[1:3], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
 
     #plt.imshow(np.arcsinh(array), origin="lower", vmin=8.33, vmax=8.38)
     #plt.show()
@@ -45,8 +45,8 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
     os.mkdir(dir_name)
     cutout = (cutout_size, cutout_size) 
     overlap = cutout_size * (1-overlap_percentage) # if cutout_size = 500 px, setting overlap = 0.2 would leave 100 pixels overlapping 
-    num_images_per_row = ceil(shape_out[0]/overlap)
-    num_images_per_column = ceil(shape_out[1]/overlap)
+    num_images_per_row = ceil(shape_out[1]/overlap)
+    num_images_per_column = ceil(shape_out[0]/overlap)
 
     print("mosaic shape: ", shape_out)
     print("num_images_per_row: ", num_images_per_row)
@@ -61,10 +61,13 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
             cen = (row_pos, col_pos)
             print("processing cutout at position ", str(cen))
 
-            segment = extract_array(array, cutout, cen)
+            segment = Cutout2D(array, position=cen, size=cutout, wcs=wcs_out, copy=True)
+            #segment = extract_array(array, cutout, cen)
+            header_new = segment.wcs.to_header()
+            #print(header_new, type(header_new))
             
             hdu_p = fits.PrimaryHDU(header=orig_header)
-            hdu_i = fits.ImageHDU(segment)
+            hdu_i = fits.ImageHDU(segment.data, header=header_new)
             hdulist = fits.HDUList([hdu_p,hdu_i])
 
             output_file = os.path.join(dir_name, str(cen)+".fits")

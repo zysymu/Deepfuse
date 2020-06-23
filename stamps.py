@@ -14,19 +14,21 @@ import astropy.units as u
 
 class EllipseBBox():
     """
-    Outputs a stamp for each source detected in an image
+    Outputs a stamp for each source detected in a fits image
     -------
     Input:
     
-    data = 2D float array / image 
+    filename = str / path to .fits image
     ps = float / pixel scale [arcsec per pixel] 
     mzero = float / magnitude zero point
     sizethresh = float / threshold for minimum stamp side size [pixels]
-    SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean+1)
+    SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean-2)
     """
 
-    def __init__(self, data, ps, mzero, sizethresh, SBthresh=None):
-        self.data = data
+    def __init__(self, filename, ps, mzero, sizethresh, SBthresh=None):
+        self.f = fits.open(filename, memmap=True)
+        img = self.f[1].data
+        self.data = img.byteswap().newbyteorder()
         self.ps = ps
         self.mzero = mzero
         self.sizethresh = sizethresh
@@ -79,19 +81,27 @@ class EllipseBBox():
         df.drop(df[df["size"] < self.sizethresh].index, inplace=True)
         df.reset_index(inplace=True)
         
-        cutout = []        
-        for index, row in df.iterrows():
-            stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(row["size"],row["size"]), copy=True) 
-            cutout.append(stamp)
+        w = wcs.WCS(self.f[1].header)
+
+        stamps = []
+        headers = []
         
-        return cutout, df
+        for index, row in df.iterrows():
+            stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(row["size"],row["size"]), wcs=w, copy=True) 
+            stamps.append(stamp)
+            header_new = stamp.wcs.to_header()
+            headers.append(header_new)    
+        
+        assert len(stamps) == len(headers)
+
+        return stamps, headers, df 
 
 
     def show_stamps(self, title=""):
         """
         Detects stamps and show where they are on the original image
         """
-        stamps, df = self.get_stamps()
+        stamps, headers, df = self.get_stamps()
         
         avg = np.mean(np.arcsinh(self.data))
         plt.imshow(np.arcsinh(self.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
@@ -112,13 +122,17 @@ class EllipseBBox():
         dir_stamps = os.path.join(pwd, dir_name)
         os.mkdir(dir_stamps)
 
-        stamps, df = self.get_stamps()
-        for index, cutout in enumerate(stamps):
-            hdu = fits.PrimaryHDU(cutout.data)
-            hdul = fits.HDUList([hdu])
-            cutout_filename = os.path.join(dir_stamps, str(index) + ".fits")
-            #hdu.writeto(cutout_filename, overwrite=True)
-            hdul.writeto(cutout_filename)
+        orig_header = self.f[0].header
+
+        stamps, headers, df = self.get_stamps()
+
+        for index in range(len(stamps)):
+            hdu_p = fits.PrimaryHDU(header=orig_header)
+            hdu_i = fits.ImageHDU(stamps[index].data, header=headers[index])
+            hdul = fits.HDUList([hdu_p,hdu_i])
+
+            stamp_filename = os.path.join(dir_stamps, str(index) + ".fits")
+            hdul.writeto(stamp_filename)
         
         df.to_csv(os.path.join(dir_stamps, "catalog.csv"), index=False)
         return df

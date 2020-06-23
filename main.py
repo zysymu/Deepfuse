@@ -41,13 +41,8 @@ for directory in dir_list: # gets each new directory
     df_list = []
 
     for f in tqdm(files): # goes through the cutout fits files in this directory
-        hdul = fits.open(os.path.join(full_path,f), memmap=True)
-        img = hdul[1].data
-        img = img.byteswap().newbyteorder() 
-        hdul.close()
-        
         # saves each source detected in a certain file to a directory
-        df = EllipseBBox(img, ps, mzero, sizethresh).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
+        df = EllipseBBox(os.path.join(full_path,f), ps, mzero, sizethresh).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
         df_list.append(df)
 
     catalog = pd.concat(df_list)
