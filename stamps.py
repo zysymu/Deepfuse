@@ -22,10 +22,10 @@ class EllipseBBox():
     ps = float / pixel scale [arcsec per pixel] 
     mzero = float / magnitude zero point
     sizethresh = float / threshold for minimum stamp side size [pixels]
-    SBthresh = float / threshold for the maximum surface brightness of the sources to be detected (if = None we use the mean-2)
+    SBthresh = tuple / minimum and maximum threshold for surface brightness of the detected sources
     """
 
-    def __init__(self, filename, ps, mzero, sizethresh, SBthresh=None):
+    def __init__(self, filename, ps, mzero, sizethresh, SBthresh):
         self.filename = filename
         self.f = fits.open(filename, memmap=True)
         img = self.f[1].data
@@ -65,13 +65,10 @@ class EllipseBBox():
 
         # excluding data bellow a certain surface brightness threshold
         df["SB"] = self._SB(df["flux"].values, df["area"].values)
-        if self.SBthresh == None:
-            SBthresh = df["SB"].mean() - 2
-        else:
-            SBthresh = self.SBthresh
 
-        #df = df[df["SB"] >= SBthresh]
-        df.drop(df[df["SB"] < SBthresh].index, inplace=True)
+        SB_min, SB_max = self.SBthresh
+        df.drop(df[df["SB"] <= SB_min].index, inplace=True)
+        df.drop(df[df["SB"] >= SB_max].index, inplace=True)
         df.reset_index(inplace=True)
 
         # apply _get_ellipse_bb to find values bounding box extreme points

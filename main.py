@@ -27,7 +27,7 @@ for filename in tqdm(fits_files):
 ps = 0.27
 mzero = 31.395
 sizethresh = 50
-
+SBthresh = (24.3, 28.8)
 
 
 for directory in dir_list: # gets each new directory
@@ -42,7 +42,7 @@ for directory in dir_list: # gets each new directory
 
     for f in tqdm(files): # goes through the cutout fits files in this directory
         # saves each source detected in a certain file to a directory
-        df = EllipseBBox(os.path.join(full_path,f), ps, mzero, sizethresh).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
+        df = EllipseBBox(os.path.join(full_path,f), ps, mzero, sizethresh, SBthresh).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
         df_list.append(df)
 
     catalog = pd.concat(df_list)
