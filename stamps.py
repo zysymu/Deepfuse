@@ -26,6 +26,7 @@ class EllipseBBox():
     """
 
     def __init__(self, filename, ps, mzero, sizethresh, SBthresh=None):
+        self.filename = filename
         self.f = fits.open(filename, memmap=True)
         img = self.f[1].data
         self.data = img.byteswap().newbyteorder()
@@ -58,7 +59,7 @@ class EllipseBBox():
         Get the sources in the image as stamps
         """
         # running DeepScan
-        result = DeepScan(self.data)
+        result = DeepScan(self.data, verbose=False)
         df = result["df"]
         df.dropna(inplace=True)
 
@@ -71,6 +72,7 @@ class EllipseBBox():
 
         #df = df[df["SB"] >= SBthresh]
         df.drop(df[df["SB"] < SBthresh].index, inplace=True)
+        df.reset_index(inplace=True)
 
         # apply _get_ellipse_bb to find values bounding box extreme points
         df["min_x"], df["max_x"] = self._get_ellipse_bb(df["xcen"].values, df["ycen"].values, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
@@ -81,16 +83,22 @@ class EllipseBBox():
         df.drop(df[df["size"] < self.sizethresh].index, inplace=True)
         df.reset_index(inplace=True)
         
+        # WCS for the detected sources
         w = wcs.WCS(self.f[1].header)
+        df["ra"], df["dec"] = w.wcs_pix2world(df["xcen"], df["ycen"], 0) 
 
+        # creating the cutout and preserving the header
         stamps = []
         headers = []
         
         for index, row in df.iterrows():
-            stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(row["size"],row["size"]), wcs=w, copy=True) 
+            stamp = Cutout2D(self.data, position=(row["xcen"], row["ycen"]), size=(row["size"],row["size"]), wcs=w, copy=True)
             stamps.append(stamp)
             header_new = stamp.wcs.to_header()
-            headers.append(header_new)    
+            headers.append(header_new)
+
+            df.at[index, "name"] = str(index) # name of the output .fits image
+            df.at[index, "association"] = str(self.filename.rsplit(".", 1)[0].split("/")[2]) # name of the big cutout image
         
         assert len(stamps) == len(headers)
 

@@ -62,9 +62,7 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
             print("processing cutout at position ", str(cen))
 
             segment = Cutout2D(array, position=cen, size=cutout, wcs=wcs_out, copy=True)
-            #segment = extract_array(array, cutout, cen)
             header_new = segment.wcs.to_header()
-            #print(header_new, type(header_new))
             
             hdu_p = fits.PrimaryHDU(header=orig_header)
             hdu_i = fits.ImageHDU(segment.data, header=header_new)
