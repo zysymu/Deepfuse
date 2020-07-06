@@ -16,13 +16,14 @@ from astropy.coordinates import SkyCoord
 ###########################################
 
 
-def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name):
+def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage, dir_name):
     """
     Creates a mosaic of a .fits image and segment it in smaller cutouts with some overlap, saving the resulting images to a newly created directory.
     
     -------
     Input:
-    filename = str / path to .fits image
+    filename = str / path to .fits image file
+    maskfile = str / path to corresponding .fits mask file
     cutout_size = int / size of the cutout
     overlap_percentage = float / percentage of overlap (0. = completely new cutout, no overlap; 1. = same cutout, total overlap)
     dir_name = str / name of the directory where the stamps are going to be stored
@@ -30,17 +31,33 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
     """
 
     f = fits.open(filename, memmap=True)
+    m = fits.open(maskfile, memmap=True)
+    print(m)
     orig_header = f[0].header # PrimaryHDU object
 
     print("finding wcs...")
-    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:3]) # has only CompImageHDU files
+    wcs_out, shape_out = find_optimal_celestial_wcs(f[1:10]) # has only CompImageHDU files
+
+    
+    print("applying mask...")
+    for i in range(1, len(f)):
+        m[i].data = (m[i].data < 0.5).astype(int)
+        f[i].data = f[i].data * m[i].data
+
+    m.close()
+    del m
 
     print("creating mosaic...")
-    array, footprint = reproject_and_coadd(f[1:3], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
-
-    #plt.imshow(np.arcsinh(array), origin="lower", vmin=8.33, vmax=8.38)
-    #plt.show()
+    array, footprint = reproject_and_coadd(f[1:10], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
+    print(array)
+    print(type(array))
     
+    #mask, footprint = reproject_and_coadd(m[1:4], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
+    #mask = (mask < 0.5).astype(int)
+    #array = array * mask
+    #del mask
+    #del footprint
+
     # segment
     os.mkdir(dir_name)
     cutout = (cutout_size, cutout_size) 
@@ -62,17 +79,22 @@ def make_and_segment_mosaic(filename, cutout_size, overlap_percentage, dir_name)
             print("processing cutout at position ", str(cen))
 
             segment = Cutout2D(array, position=cen, size=cutout, wcs=wcs_out, copy=True)
-            header_new = segment.wcs.to_header()
             
-            hdu_p = fits.PrimaryHDU(header=orig_header)
-            hdu_i = fits.ImageHDU(segment.data, header=header_new)
-            hdulist = fits.HDUList([hdu_p,hdu_i])
+            # checks if the segment has values other than 0, ignores the CCD parts with no good pixels
+            if not np.all((segment.data == 0)): # returns True if all zeros, use not in front of it to look at the segments with other values only
+                header_new = segment.wcs.to_header()
+            
+                hdu_p = fits.PrimaryHDU(header=orig_header)
+                hdu_i = fits.ImageHDU(segment.data, header=header_new)
+                hdulist = fits.HDUList([hdu_p,hdu_i])
 
-            output_file = os.path.join(dir_name, str(cen)+".fits")
-            hdulist.writeto(output_file, overwrite=True)
+                output_file = os.path.join(dir_name, str(cen)+".fits")
+                hdulist.writeto(output_file, overwrite=True)
 
-            #plt.imshow(np.arcsinh(segment), origin="lower", vmin=8.33, vmax=8.38)
-            #plt.show()
+                # check out the data (it works!!!)
+                #avg = np.mean(np.arcsinh(segment.data))
+                #plt.imshow(np.arcsinh(segment.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
+                #plt.show()
 
             col_pos += overlap
             

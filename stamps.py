@@ -25,23 +25,23 @@ class EllipseBBox():
     SBthresh = tuple / minimum and maximum threshold for surface brightness of the detected sources
     """
 
-    def __init__(self, filename, ps, mzero, sizethresh, SBthresh):
+    def __init__(self, filename, ps, sizethresh, SBthresh):
         self.filename = filename
         self.f = fits.open(filename, memmap=True)
         img = self.f[1].data
         self.data = img.byteswap().newbyteorder()
         self.ps = ps
-        self.mzero = mzero
+        #self.mzero = mzero
         self.sizethresh = sizethresh
         self.SBthresh = SBthresh
 
 
-    def _SB(self, flux, area):
+    def _SB(self, flux, area, mzero):
         """
         Computes the Surface Brightness
         """
         area_arcsec = area*self.ps*self.ps
-        return -2.5*np.log10(flux) + 2.5*np.log10(area_arcsec) + self.mzero
+        return -2.5*np.log10(flux) + 2.5*np.log10(area_arcsec) + mzero
 
 
     def _get_ellipse_bb(self, x, y, major, minor, angle_deg):
@@ -64,7 +64,8 @@ class EllipseBBox():
         df.dropna(inplace=True)
 
         # excluding data bellow a certain surface brightness threshold
-        df["SB"] = self._SB(df["flux"].values, df["area"].values)
+        mzero = self.f[0].header["MAGZERO"]
+        df["SB"] = self._SB(df["flux"].values, df["area"].values, mzero)
 
         SB_min, SB_max = self.SBthresh
         df.drop(df[df["SB"] <= SB_min].index, inplace=True)
