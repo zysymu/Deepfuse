@@ -15,6 +15,12 @@ from astropy.coordinates import SkyCoord
 
 ###########################################
 
+def fill_contours_fixed(arr):
+    return np.maximum.accumulate(arr, 1) &\
+        np.maximum.accumulate(arr[:, ::-1], 1)[:, ::-1] &\
+        np.maximum.accumulate(arr[::-1, :], 0)[::-1, :] &\
+        np.maximum.accumulate(arr, 0)
+
 
 def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage, dir_name):
     """
@@ -32,7 +38,6 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
 
     f = fits.open(filename, memmap=True)
     m = fits.open(maskfile, memmap=True)
-    print(m)
     orig_header = f[0].header # PrimaryHDU object
 
     print("finding wcs...")
@@ -42,6 +47,7 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
     print("applying mask...")
     for i in range(1, len(f)):
         m[i].data = (m[i].data < 0.5).astype(int)
+        m[i].data = fill_contours_fixed(m[i].data)
         f[i].data = f[i].data * m[i].data
 
     m.close()
@@ -49,15 +55,7 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
 
     print("creating mosaic...")
     array, footprint = reproject_and_coadd(f[1:10], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
-    print(array)
-    print(type(array))
     
-    #mask, footprint = reproject_and_coadd(m[1:4], wcs_out, shape_out=shape_out, reproject_function=reproject_interp)
-    #mask = (mask < 0.5).astype(int)
-    #array = array * mask
-    #del mask
-    #del footprint
-
     # segment
     os.mkdir(dir_name)
     cutout = (cutout_size, cutout_size) 
@@ -90,11 +88,6 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
 
                 output_file = os.path.join(dir_name, str(cen)+".fits")
                 hdulist.writeto(output_file, overwrite=True)
-
-                # check out the data (it works!!!)
-                #avg = np.mean(np.arcsinh(segment.data))
-                #plt.imshow(np.arcsinh(segment.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
-                #plt.show()
 
             col_pos += overlap
             

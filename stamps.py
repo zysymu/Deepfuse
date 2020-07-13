@@ -22,18 +22,20 @@ class EllipseBBox():
     ps = float / pixel scale [arcsec per pixel] 
     mzero = float / magnitude zero point
     sizethresh = float / threshold for minimum stamp side size [pixels]
-    SBthresh = tuple / minimum and maximum threshold for surface brightness of the detected sources
+    sbthresh = float / minimum threshold for surface brightness of the detected sources
+    elthresh = float / maximum ellipticity
     """
 
-    def __init__(self, filename, ps, sizethresh, SBthresh):
+    def __init__(self, filename, ps, sizethresh, sbthresh, elthresh, hrthresh):
         self.filename = filename
         self.f = fits.open(filename, memmap=True)
         img = self.f[1].data
         self.data = img.byteswap().newbyteorder()
         self.ps = ps
-        #self.mzero = mzero
         self.sizethresh = sizethresh
-        self.SBthresh = SBthresh
+        self.sbthresh = sbthresh
+        self.elthresh = elthresh
+        self.hrthresh = hrthresh
 
 
     def _SB(self, flux, area, mzero):
@@ -63,21 +65,42 @@ class EllipseBBox():
         df = result["df"]
         df.dropna(inplace=True)
 
+        # remove data below ellipticity treshold
+        df.drop(df[(1 - df["q"]) > self.elthresh].index, inplace=True)
+
+        # determine pixel scale
+        cam_deg = self.f[0].header["CDELT2"] #cam_deg = Angle(self.f[0].header["CDELT2"], u.deg) # degrees
+        cam_arc = (cam_deg*u.deg).to(u.arcsec)
+        print(cam_arc)
+        print(cam_arc.value)
+        print(type(cam_arc))
+        print(type(cam_arc.value))
+        #pixs = u.pixel_scale(cam_deg*u.arcsec/u.pixel).value
+        #print(pixs)
+
+        # remove data below R50 threshold:
+        for index, row in df.iterrows():
+            print(row["R50"])
+            #print(type(row["R50"]))
+            row["half_radii"] = (row["R50"]*u.pixel).to(u.arcsec, cam_arc) #df["half_radii"] = (df["R50"]*u.pixel).to(u.arcsec, ps) # pixels to arcsec
+            #print(row["half_radii"])
+            #row["half_radii"] = (row["half_radii"].value).to(u.parsec, equivalencies=u.parallax()) #df["half_radii"] = (half_radii * u.arcsec).to(u.parsec, equivalencies=u.parallax()) # arcsec to parsec
+            #print(df["half_radii"])
+
+        #df["half_radii"] = (df["R50"] * u.pixel).to(u.arcsec, cam_arc)
+        print(df["half_radii"])
+        df.drop(df[df["half_radii"] < self.hrthresh].index, inplace=True)
+
         # excluding data bellow a certain surface brightness threshold
         mzero = self.f[0].header["MAGZERO"]
         df["SB"] = self._SB(df["flux"].values, df["area"].values, mzero)
-
-        SB_min, SB_max = self.SBthresh
-        df.drop(df[df["SB"] <= SB_min].index, inplace=True)
-        df.drop(df[df["SB"] >= SB_max].index, inplace=True)
-        df.reset_index(inplace=True)
+        df.drop(df[df["SB"] <= self.sbthresh].index, inplace=True)
 
         # apply _get_ellipse_bb to find values bounding box extreme points
         df["min_x"], df["max_x"] = self._get_ellipse_bb(df["xcen"].values, df["ycen"].values, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
 
         # crop "data" according to the positions in df, outputs individual cutouts
-        df["size"] = (df["max_x"].values - df["min_x"].values) * 10
-        #print(df)
+        df["size"] = (df["max_x"].values - df["min_x"].values) * 5
         df.drop(df[df["size"] < self.sizethresh].index, inplace=True)
         df.reset_index(inplace=True)
         
@@ -99,6 +122,7 @@ class EllipseBBox():
             df.at[index, "association"] = str(self.filename.rsplit(".", 1)[0].split("/")[2]) # name of the big cutout image
         
         assert len(stamps) == len(headers)
+        df.drop(['index', 'segID', 'parentID'], axis=1, inplace=True)
 
         return stamps, headers, df 
 
