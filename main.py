@@ -35,11 +35,10 @@ for i, filename in tqdm(enumerate(fits_files)):
 # EXTRACT SOURCES FROM CUTOUTS
 
 # values for DECAM r-band
-ps = 0.27
-sizethresh = None #50
+sizethresh = 50
 SBTHRESH = 26
 ELTHRESH = 0.7
-HRTHRESH = 60
+ANGTHRESH = None
 
 
 for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/CUTOUTS-TESTS/testing-masks/masktest"): # gets each new directory
@@ -55,9 +54,9 @@ for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/CUTOUTS-TESTS/
     for f in tqdm(files): # goes through the cutout fits files in this directory
         # saves each source detected in a certain file to a directory
         try:
-            #df = EllipseBBox(os.path.join(full_path,f), ps, sizethresh, SBTHRESH, ELTHRESH, HRTHRESH).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
+            #df = EllipseBBox(os.path.join(full_path,f), sizethresh, SBTHRESH, ELTHRESH, ANGTHRESH).save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
             #df_list.append(df)
-            EllipseBBox(os.path.join(full_path,f), ps, sizethresh, SBTHRESH, ELTHRESH, HRTHRESH).show_stamps(f)
+            EllipseBBox(os.path.join(full_path,f), sizethresh, SBTHRESH, ELTHRESH, ANGTHRESH).show_stamps(f)
         except AttributeError as e:
             continue
 
