@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from deepscan.deepscan import DeepScan
+from deepscan import skymap, dbscan, deblend, makecat
 import pandas as pd
 from astropy.nddata import Cutout2D
 from astropy.io import fits
@@ -8,33 +8,98 @@ import os
 from astropy import wcs
 from astropy.coordinates import Angle
 import astropy.units as u
+from astropy.convolution import Ring2DKernel
+from astropy.convolution import convolve
 
 
 ##############################################
 
-class EllipseBBox():
+class AnalyzeImage(object):
     """
     Outputs a stamp for each source detected in a fits image
     -------
     Input:
     
     filename = str / path to .fits image
+
     mzero = float / magnitude zero point
+
     sizethresh = float / threshold for minimum stamp side size [pixels]
+
     sbthresh = float / minimum threshold for surface brightness of the detected sources
+
     elthresh = float / maximum ellipticity
+
     angthresh = float / minimum angular size in arcseconds
     """
 
-    def __init__(self, filename, sizethresh, sbthresh, elthresh, angthresh):
+    def __init__(self, filename):
         self.filename = filename
         self.f = fits.open(filename, memmap=True)
         img = self.f[1].data
         self.data = img.byteswap().newbyteorder()
+        self.a = img.byteswap().newbyteorder()
+
+    def thresholds(self, sizethresh, sbthresh, elthresh, angthresh):
         self.sizethresh = sizethresh
         self.sbthresh = sbthresh
         self.elthresh = elthresh
         self.angthresh = angthresh
+
+    def sky(self):
+        sky, self.rms = skymap.skymap(self.data, verbose=False)
+        self.data -= sky
+
+    def apply_ring_filter(self, inner_radius=None, width=5):
+        sky, self.rms = skymap.skymap(self.data, verbose=False)
+        self.data -= sky
+
+        if inner_radius == None:
+            inner_radius = self.f[0].header["FWHM"]/2
+
+        print("applying ring filter...")
+        kernel = Ring2DKernel(inner_radius, width)
+        self.data = convolve(self.data, kernel)
+
+    def show_stamps(self, title=""):
+        """
+        Detects stamps and show where they are on the original image
+        """
+        stamps, headers, df = self._get_stamps()
+        
+        avg = np.mean(np.arcsinh(self.a))
+        plt.imshow(np.arcsinh(self.a), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
+        plt.title(title)
+        plt.colorbar()
+
+        for el in stamps:
+            el.plot_on_original(color='red')
+        print(df)
+        plt.show()
+
+
+    def save_stamps(self, dir_name="stamps"):
+        """
+        Save stamps to a newly created directory
+        """        
+        pwd = os.getcwd()
+        dir_stamps = os.path.join(pwd, dir_name)
+        os.mkdir(dir_stamps)
+
+        orig_header = self.f[0].header
+
+        stamps, headers, df = self._get_stamps()
+
+        for index in range(len(stamps)):
+            hdu_p = fits.PrimaryHDU(header=orig_header)
+            hdu_i = fits.ImageHDU(stamps[index].data, header=headers[index])
+            hdul = fits.HDUList([hdu_p,hdu_i])
+
+            stamp_filename = os.path.join(dir_stamps, str(index) + ".fits")
+            hdul.writeto(stamp_filename)
+        
+        df.to_csv(os.path.join(dir_stamps, "catalog.csv"), index=False)
+        return df
 
 
     def _SB(self, flux, area, mzero, ps):
@@ -54,14 +119,17 @@ class EllipseBBox():
     
         return min_x, max_x
 
-
-    def get_stamps(self):
+    def _get_stamps(self):
         """
         Get the sources in the image as stamps
         """
         # running DeepScan
-        result = DeepScan(self.data, verbose=False)
-        df = result["df"]
+        C = dbscan.DBSCAN(self.data, self.rms, verbose=False)
+        segmap, segments = deblend.deblend(self.data, bmap=C.segmap, rms=self.rms, verbose=False)
+        df = makecat.MakeCat(self.data, segmap=segmap, segments=segments, verbose=False)
+
+        #result = DeepScan(self.data, verbose=False)
+        #df = result["df"]
         df.dropna(inplace=True)
 
         # remove data below ellipticity treshold
@@ -73,14 +141,9 @@ class EllipseBBox():
         ps = cam_arc.value 
         pixelscale = u.pixel_scale(cam_deg*u.arcsec/u.pixel)
 
-        # remove data below angular size threshold:
+        # remove data below angular size threshold
         a = (df["R50"].values * u.pixel).to(u.arcsec, pixelscale)
-        df['angular_size'] = a.value
-
-        #for index, row in df.iterrows():
-        #    a = (row["R50"] * u.pixel).to(u.arcsec, pixelscale)
-        #    df.at[index,'angular_size'] = a.value
-        
+        df['angular_size'] = a.value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
         df.drop(df[df["angular_size"] < self.angthresh].index, inplace=True)
 
         # excluding data bellow a certain surface brightness threshold
@@ -124,47 +187,7 @@ class EllipseBBox():
             df.insert(0, col, first_col)
 
         return stamps, headers, df 
-
-
-    def show_stamps(self, title=""):
-        """
-        Detects stamps and show where they are on the original image
-        """
-        stamps, headers, df = self.get_stamps()
-        
-        avg = np.mean(np.arcsinh(self.data))
-        plt.imshow(np.arcsinh(self.data), origin='lower', vmin=avg*0.999, vmax=avg*1.005, cmap="binary_r")
-        plt.title(title)
-        plt.colorbar()
-
-        for el in stamps:
-            el.plot_on_original(color='red')
-        print(df)
-        plt.show()
-
-
-    def save_stamps(self, dir_name="stamps"):
-        """
-        Save stamps to a newly created directory
-        """        
-        pwd = os.getcwd()
-        dir_stamps = os.path.join(pwd, dir_name)
-        os.mkdir(dir_stamps)
-
-        orig_header = self.f[0].header
-
-        stamps, headers, df = self.get_stamps()
-
-        for index in range(len(stamps)):
-            hdu_p = fits.PrimaryHDU(header=orig_header)
-            hdu_i = fits.ImageHDU(stamps[index].data, header=headers[index])
-            hdul = fits.HDUList([hdu_p,hdu_i])
-
-            stamp_filename = os.path.join(dir_stamps, str(index) + ".fits")
-            hdul.writeto(stamp_filename)
-        
-        df.to_csv(os.path.join(dir_stamps, "catalog.csv"), index=False)
-        return df
+    
 
 
 ##############################################
@@ -210,19 +233,5 @@ def get_candidate(input_file, output_file, ra, dec, size):
     hdulist = fits.HDUList([hdu_p,hdu_i])
     
     hdulist.writeto(output_file, overwrite=True)
-
-
-#input_file= 'ngc3115/c4d_170217_075805_osi_g_v2.fits.fz'
-#output_file = 'candidate_002_g.fits'
-
-# position of the candidate in the image?, in pixels: (8004,6987)
-#ra = Angle('10:06:37.0581 hours').degree
-#dec = Angle('-8:29:07.129 degrees').degree
-
-# cutout size
-#size = 100
-
-#get_candidate(input_file, output_file)
-
 
 ###########################################
