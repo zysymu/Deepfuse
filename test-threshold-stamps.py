@@ -13,6 +13,7 @@ sizethreshs = [None, 10, 20, 30, 40, 50, 60, 70]
 sbthreshs = [25, 25.5, 26, 26.5, 27]
 elthreshs = [0.6, 0.7, 0.8, 0.9]
 ring = [True, False]
+anfthreshs = [1.1, 1.2, 1.3]
 
 
 for c in cutout_sizes:
@@ -40,7 +41,7 @@ for c in cutout_sizes:
                                 if r:
                                     cutout.apply_ring_filter()
                                 else:
-                                    cutout.sky()
+                                    cutout.subtract_sky()
                                 #cutout.show_stamps(f)
                                 df = cutout.save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
                                 df_list.append(df)

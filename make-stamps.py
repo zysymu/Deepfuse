@@ -8,11 +8,15 @@ import pandas as pd
 SIZETHRESH = 10
 SBTHRESH = 25
 ELTHRESH = 0.7
-r = False
+I50THRESH = 6
+I50AVTHRESH = 9
+R50THRESH = 5
 ANGTHRESH = None
 
-for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/CANDIDATES-FITS/"): # directory where the cutouts are stored
-    full_path = os.path.join("/home/marcostidball/ic-astro/PROJECT/CANDIDATES-FITS/", directory)
+r = False
+
+for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/aaa"): # directory where the cutouts are stored
+    full_path = os.path.join("/home/marcostidball/ic-astro/PROJECT/aaa", directory)
     files = os.listdir(full_path)  # list all files inside a directory
     print("looking at... ", directory)
 
@@ -25,12 +29,12 @@ for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/CANDIDATES-FIT
         # saves each source detected in a certain file to a directory
         try:
             cutout = AnalyzeImage(os.path.join(full_path, f))
-            cutout.thresholds(SIZETHRESH, SBTHRESH, ELTHRESH, ANGTHRESH)
+            cutout.thresholds(SIZETHRESH, SBTHRESH, ELTHRESH, I50THRESH, I50AVTHRESH, R50THRESH, ANGTHRESH)
             if r:
                 cutout.apply_ring_filter()
             else:
-                cutout.sky()
-            # cutout.show_stamps(f)
+                cutout.subtract_sky()
+            #cutout.show_stamps(f)
             df = cutout.save_stamps(dir_name=os.path.join(stamps_dir, f.rsplit(".", 1)[0]))
             df_list.append(df)
 

@@ -21,15 +21,10 @@ class AnalyzeImage(object):
     Input:
     
     filename = str / path to .fits image
-
     mzero = float / magnitude zero point
-
     sizethresh = float / threshold for minimum stamp side size [pixels]
-
     sbthresh = float / minimum threshold for surface brightness of the detected sources
-
     elthresh = float / maximum ellipticity
-
     angthresh = float / minimum angular size in arcseconds
     """
 
@@ -40,13 +35,16 @@ class AnalyzeImage(object):
         self.data = img.byteswap().newbyteorder()
         self.a = img.byteswap().newbyteorder()
 
-    def thresholds(self, sizethresh, sbthresh, elthresh, angthresh):
+    def thresholds(self, sizethresh, sbthresh, elthresh, i50thresh, i50avthresh, r50thresh, angthresh):
         self.sizethresh = sizethresh
         self.sbthresh = sbthresh
         self.elthresh = elthresh
+        self.i50thresh = i50thresh
+        self.i50avthresh = i50avthresh
+        self.r50thresh = r50thresh
         self.angthresh = angthresh
 
-    def sky(self):
+    def subtract_sky(self):
         sky, self.rms = skymap.skymap(self.data, verbose=False)
         self.data -= sky
 
@@ -151,6 +149,11 @@ class AnalyzeImage(object):
         df["SB"] = self._SB(df["flux"].values, df["area"].values, mzero, ps)
         df.drop(df[df["SB"] <= self.sbthresh].index, inplace=True)
 
+        # remove data below other thresholds
+        df.drop(df[df["I50"] < self.i50thresh].index, inplace=True)
+        df.drop(df[df["I50av"] < self.i50avthresh].index, inplace=True)
+        df.drop(df[df["R50"] < self.r50thresh].index, inplace=True)
+
         # apply _get_ellipse_bb to find values bounding box extreme points
         df["min_x"], df["max_x"] = self._get_ellipse_bb(df["xcen"].values, df["ycen"].values, df["a_rms"].values, df["b_rms"].values, df["theta"].values)
 
@@ -187,51 +190,3 @@ class AnalyzeImage(object):
             df.insert(0, col, first_col)
 
         return stamps, headers, df 
-    
-
-
-##############################################
-
-
-def get_candidate(input_file, output_file, ra, dec, size):
-    """
-    Extract a stamp from "input_file" according to its WCS positions. From: https://github.com/rodff/LSB_galaxies/blob/master/cutout_decam_image.ipynb
-    
-    -------
-    Input:
-    input_file = string / name of .fits file (original image)
-    output_file = string / name of output .fits file (extracted candidate)
-    ra = astropy.coordinates.Angle / right ascension of the candidate
-    dec = astropy.coordinates.Angle / declination of the candidate
-    size = int / lenght of the stamp 
-    """
-
-    f = fits.open(input_file, memmap=True)
-    orig_header = f[0].header # MAIN info stuff
-
-    for i in range(1, len(f)): # go over the hdul 
-        data_ext = f[i].data # image data        
-        w_ext = wcs.WCS(f[i].header) # gets WCS stuff of the image
-        
-        # perform the core WCS transformation from pixel to world coordinates:
-        ra_i, dec_i = w_ext.wcs_pix2world(0,0,0) # gets WCS for start of the image
-        ra_f, dec_f = w_ext.wcs_pix2world(data_ext.shape[0], data_ext.shape[1], 0) # gets WCS for end of the image
-        # wcs_pix2world inputs: an array for each axis, followed by an origin
-
-        if (ra_f < ra < ra_i) and (dec_i < dec < dec_f): # makes sure the values of ra and dec are inside the image (assertion)
-            scidata = f[i].data # image data (again?)
-            w = wcs.WCS(f[i].header) # WCS stuff (again?)
-
-    position = w.wcs_world2pix(ra, dec, 0) # gets position in pixels
-
-    cutout = Cutout2D(scidata, position, size, wcs=w) # employs cutout retaining wcs info
-    header_new = cutout.wcs.to_header() # gives header info to cutout
-
-    # hdu config:
-    hdu_p = fits.PrimaryHDU(header=orig_header)
-    hdu_i = fits.ImageHDU(cutout.data, header=header_new)
-    hdulist = fits.HDUList([hdu_p,hdu_i])
-    
-    hdulist.writeto(output_file, overwrite=True)
-
-###########################################
