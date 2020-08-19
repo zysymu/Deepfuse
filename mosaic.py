@@ -47,7 +47,7 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
     print("applying mask...")
     for i in range(1, len(f)):
         m[i].data = (m[i].data < 0.5).astype(int)
-        m[i].data = fill_contours_fixed(m[i].data)
+        #m[i].data = fill_contours_fixed(m[i].data)
         f[i].data = f[i].data * m[i].data
 
     m.close()

@@ -177,7 +177,7 @@ class AnalyzeImage(object):
             headers.append(header_new)
 
             df.at[index, "name"] = str(index) # name of the output .fits image
-            df.at[index, "association"] = str(self.filename.rsplit(".", 1)[0].split("/")[2]) # name of the big cutout image
+            df.at[index, "association"] = str(self.filename.rsplit(".", 1)[0].rsplit("/")[-1]) # name of the big cutout image
         
         assert len(stamps) == len(headers)
 

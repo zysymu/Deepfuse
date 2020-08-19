@@ -15,8 +15,10 @@ ANGTHRESH = None
 
 r = False
 
-for directory in os.listdir("/home/marcostidball/ic-astro/PROJECT/aaa"): # directory where the cutouts are stored
-    full_path = os.path.join("/home/marcostidball/ic-astro/PROJECT/aaa", directory)
+cutout_dir = "/home/marcostidball/ic-astro/PROJECT/AI/fo-real3"
+
+for directory in os.listdir(cutout_dir): # directory where the cutouts are stored
+    full_path = os.path.join(cutout_dir, directory)
     files = os.listdir(full_path)  # list all files inside a directory
     print("looking at... ", directory)
 

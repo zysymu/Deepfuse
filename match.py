@@ -7,7 +7,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from astropy.table import Table
 
-NGC_CATALOG = "/home/marcostidball/ic-astro/PROJECT/NCG3115_candidates.fits"
+NGC_CATALOG = "/home/marcostidball/ic-astro/PROJECT/NGC3115_candidates.fits"
 CATALOGS_PATH = "/home/marcostidball/ic-astro/PROJECT/CANDIDATES-FITS" # contains test catalogs and folders containing stamps of different sizes
 
 hdu_list = fits.open(NGC_CATALOG, memmap=True)
@@ -36,7 +36,7 @@ for f in tqdm(os.listdir(CATALOGS_PATH)):
             sep_constraint = d2d <= max_sep
             goal_matches = goal[sep_constraint]
             catalog_matches = catalog[idx[sep_constraint]]
-            
+
             if len(catalog_matches) >= 20:          
                 good_catalogs["name"] = f
                 good_catalogs["size"] = len(catalog)
