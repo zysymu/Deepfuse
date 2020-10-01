@@ -14,7 +14,7 @@ from reproject.mosaicking import find_optimal_celestial_wcs
 from astropy.coordinates import SkyCoord
 
 
-def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage, dir_name):
+def segment_mosaic(filename, maskfile, dir_name, cutout_size=1000, overlap_percentage=0.3):
     """
     Creates a mosaic of a .fits image and segments it in smaller cutouts with some overlap, saving the resulting images to a newly created directory.
     
@@ -26,14 +26,14 @@ def make_and_segment_mosaic(filename, maskfile, cutout_size, overlap_percentage,
     maskfile: str
         Path to corresponding .fits mosaic mask file.
 
-    cutout_size: int
-        Side dimension of the cutout. For example: 1000 outputs a 1000x1000 cutouts.
-
-    overlap_percentage: float
-        Percentage of overlap between cutouts (0. = completely new cutout, no overlap; 1. = same cutout, total overlap).
-
     dir_name: str
         Path to new directory where the cutouts are going to be stored.
+
+    cutout_size: int, default 1000
+        Side dimension of the cutout. For example: 1000 outputs a 1000x1000 cutouts.
+
+    overlap_percentage: float, default 0.3
+        Percentage of overlap between cutouts (0. = completely new cutout, no overlap; 1. = same cutout, total overlap).
     """
 
     f = fits.open(filename, memmap=True)
