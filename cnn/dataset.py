@@ -80,7 +80,7 @@ class Dataset():
         # change scale
         if self.vscale:
             scale = 1
-            data = np.arcsinh(np.clip(data, vmin, vmax)/vmax * scale)
+            data = np.arcsinh(np.clip(data, self.vmin, self.vmax)/self.vmax * scale)
 
         data = np.asarray(data)    
         labels = np.asarray(labels)
@@ -124,7 +124,7 @@ class Dataset():
         # change scale
         if self.vscale:
             scale = 1
-            data = np.arcsinh(np.clip(data, vmin, vmax)/vmax * scale)
+            data = np.arcsinh(np.clip(data, self.vmin, self.vmax)/self.vmax * scale)
 
         data = np.asarray(data)    
 

@@ -1,13 +1,10 @@
 import os
-import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-import efficientnet.tfkeras
 import tensorflow_addons as tfa
+import efficientnet.tfkeras
 import numpy as np
-import pandas as pd
 from astropy.io import fits
-
 from sklearn.utils import class_weight
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
@@ -15,14 +12,12 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_curve
 import seaborn as sns
-
 from skimage.transform import resize
 import matplotlib.pyplot as plt
 
-tf.get_logger().setLevel('INFO')
 plt.style.use('ggplot')
 
-class Classifier(): #fit, eval, save
+class Classifier(): 
     def __init__(self, img_dim, batch_size): #if model == lens, img_dims = (200,200)
         self.img_dim = img_dim
         self.input_shape = (img_dim, img_dim, 3)
@@ -53,13 +48,14 @@ class Classifier(): #fit, eval, save
         ])
 
         # Create model
-        if model_type == "lens":
+        if model_type.split("-")[0] == "lens": 
             lens_model = keras.models.load_model("efn0_vis.hdf5", custom_objects={'RAdam': tfa.optimizers.RectifiedAdam})
 
             lens_model.trainable = True
             set_trainable = False
             # block1a_dwconv; block2a_expand_conv; block3a_expand_conv; block4a_expand_conv; block5a_expand_conv; block6a_expand_conv; block7a_expand_conv
-            l = "block5a_expand_conv"
+            block = model_type.split("-")[1]
+            l = "block" + block +"a_expand_conv"
             for layer in lens_model.layers:
                 if layer.name == l:
                     set_trainable = True
@@ -68,16 +64,55 @@ class Classifier(): #fit, eval, save
                 else:
                     layer.trainable = False
 
-            self.model = tf.keras.Sequential([
+            self.model = keras.Sequential([
                 data_augmentation,
-                lens_model
+                lens_model,
+                layers.Flatten(),
+                layers.Dense(1024, activation='relu'),
+                layers.Dense(1, activation='sigmoid')
             ])
 
         else:
             if model_type == "VGG16":
                 base = keras.applications.VGG16(include_top=False, weights="imagenet", input_shape=self.input_shape)
-            elif model_type == "EfficientNetB0":
+                
+            elif model_type.split("-")[0] == "eff0":
                 base = keras.applications.EfficientNetB0(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff1":
+                base = keras.applications.EfficientNetB1(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff2":
+                base = keras.applications.EfficientNetB2(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff3":
+                base = keras.applications.EfficientNetB3(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff4":
+                base = keras.applications.EfficientNetB4(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff5":
+                base = keras.applications.EfficientNetB5(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff6":
+                base = keras.applications.EfficientNetB6(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            elif model_type.split("-")[0] == "eff7":
+                base = keras.applications.EfficientNetB7(include_top=False, weights="imagenet", input_shape=self.input_shape)
+
+            base.trainable = True
+            set_trainable = False
+            block = model_type.split("-")[1]
+            l = "block" + block +"a_expand_conv"
+
+            for layer in base.layers:
+                if layer.name == l:
+                    set_trainable = True
+                if set_trainable:
+                    layer.trainable = True
+                else:
+                    layer.trainable = False
+            
 
             self.model = keras.models.Sequential([
                 data_augmentation,    
@@ -98,7 +133,7 @@ class Classifier(): #fit, eval, save
         print(np.shape(self.trainX), np.shape(self.trainY))
 
         #history = model.fit(trainX, trainY, batch_size=BS, epochs=EPOCHS, steps_per_epoch=len(trainX)//BS, validation_data=(valX, valY), validation_steps = len(valX)//BS, class_weight=weights_dict, callbacks=[reduce_lr, earlystopper], verbose=1)
-        self.history = self.model.fit(self.trainX, self.trainY, batch_size=batch_size, epochs=epochs, steps_per_epoch=len(self.trainX)//batch_size, validation_data=(valX, valY), validation_steps = len(valX)//batch_size, class_weight=weights_dict, verbose=1)
+        self.history = self.model.fit(self.trainX, self.trainY, batch_size=self.batch_size, epochs=epochs, steps_per_epoch=len(self.trainX)//self.batch_size, validation_data=(valX, valY), validation_steps = len(valX)//self.batch_size, class_weight=weights_dict, verbose=1)
 
     def save(self, path):
         self.model.save(path, save_format="hdf5")
@@ -117,6 +152,7 @@ class Classifier(): #fit, eval, save
         epochs = range(1, len(acc) + 1)
 
         # Accuracy
+        plt.figure()
         plt.plot(epochs, acc, 'b', label='Training Accuracy')
         plt.plot(epochs, val_acc, 'r', label='Validation Accuracy')
         plt.title("Accuracy")
@@ -162,15 +198,23 @@ class Classifier(): #fit, eval, save
     def load(self, model_path):
         self.model = keras.models.load_model(model_path)
 
-    def classify(self, data, f_names):
+    def classify(self, data, f_names, output):
         predictions = self.model.predict(data, batch_size=self.batch_size).max(axis=1)
 
+        gal = 0
+        non = 0    
+
+        outF = open(output, "w")
         for i, t in enumerate(predictions):
             if t >= 0.5:
-                print(f_names[i] + " IS a galaxy!", t)
+                outF.write(f_names[i] + " " + str(t) + " GALAXY! \n")
+                gal += 1
             else:
-                print(f_names[i] + " is NOT a galaxy!", t)
+                outF.write(f_names[i] + " " + str(t) + " NOT! \n")
+                non += 1
 
+        outF.write("galaxies: " + str(gal) + "-" "non: " + str(non) + "\n")
+        outF.close()
         return predictions, f_names
 
     def _plot_roc(self, name, labels, predictions, color):
