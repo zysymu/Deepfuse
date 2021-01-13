@@ -201,9 +201,8 @@ class Scanner(object):
         elif self.mode.split("-")[0] == "simulation":
             pad = float(self.mode.split("-")[1])
 
-            x_pad = (self.data.shape[1]/2 - pad, self.data.shape[1]/2 + pad)
-            y_pad = (self.data.shape[0]/2 - pad, self.data.shape[0]/2 + pad)
-            print(x_pad, y_pad)
+            x_pad = (self.data.shape[0]/2 - pad, self.data.shape[0]/2 + pad)
+            y_pad = (self.data.shape[1]/2 - pad, self.data.shape[1]/2 + pad)
             
             # remove data outside area around center
             df = df[(df["xcen"] >= x_pad[0]) & (df["xcen"] <= x_pad[1])]
