@@ -1,12 +1,6 @@
-import numpy as np 
 import pandas as pd
 from urllib.request import urlretrieve
-import matplotlib
-import requests
-import matplotlib.pyplot as plt
-from PIL import Image
 import os
-import shutil
 
 d = '/home/marcostidball/Deepfuse/legacy-survey-test'
 
