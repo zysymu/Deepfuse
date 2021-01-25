@@ -29,6 +29,13 @@ class Rescale(object):
         return tensor
 
 
+def transform(training):
+    if training:
+        return transforms.Compose([Rescale(0,1), transforms.RandomHorizontalFlip(), transforms.RandomVerticalFlip(), transforms.RandomRotation(5), transforms.RandomCrop(200), transforms.Resize(128)])
+    else: # evaluation
+        return transforms.Compose([Rescale(0,1), transforms.Resize(128)])
+
+
 class LegacySurveyDataset(Dataset):
     def __init__(self, csv_file, transform=None, ps=0.14):
         self.df = pd.read_csv(csv_file)
@@ -54,10 +61,3 @@ class LegacySurveyDataset(Dataset):
             img = self.transform(img)
 
         return img, torch.tensor(label)
-
-
-def transform(training):
-    if training:
-        return transforms.Compose([Rescale(0,1), transforms.RandomHorizontalFlip(), transforms.RandomVerticalFlip(), transforms.RandomRotation(5), transforms.RandomCrop(200), transforms.Resize(128)])
-    else: # evaluation
-        return transforms.Compose([Rescale(0,1), transforms.Resize(128)])

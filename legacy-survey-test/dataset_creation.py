@@ -4,12 +4,12 @@ import os
 
 d = '/home/marcostidball/Deepfuse/legacy-survey-test'
 
-candidates = pd.read_csv(os.path.join(d,'coordenadas_candidatas.csv'))
+candidates = pd.read_csv(os.path.join(d,'train.csv'))
 
 # params:
 ps = 0.2 # zoom level
 
-def extract(df, ps, fits):
+def fetch(df, ps, fits):
     for i, row in df.iterrows():
         ra = row['ra']
         dec = row['dec']
@@ -24,5 +24,5 @@ def extract(df, ps, fits):
         
 
 if __name__ ==  '__main__':
-    extract(candidates, ps, fits=True)
+    fetch(candidates, ps, fits=True)
     
