@@ -1,45 +1,9 @@
 import pandas as pd
-from urllib.request import urlretrieve
+import urllib.request
+import urllib.error
 import os
 
-"""
-import time
-import urllib
-import math
-import sys
-
-def truncate(f, n=4): # saves from url problems
-    if f < 0:
-        return math.ceil(f * 10 ** n) / 10 ** n
-    else:
-        return math.floor(f * 10 ** n) / 10 ** n
-
-        ra = truncate(self.df.loc[idx, 'ra'])
-        dec = truncate(self.df.loc[idx, 'dec'])
-        label = self.df.loc[idx, 'label']
-
-        legacy_survey = f'https://www.legacysurvey.org/viewer/cutout.fits?ra={ra}&dec={dec}&layer=ls-dr9&pixscale={self.ps}'
-
-        # dealing with http errors    
-        print(legacy_survey)
-
-        retries = 1
-        success = False
-        while not success:
-            try:
-                hdul = fits.open(legacy_survey)
-                success = True
-            #except urllib.error.HTTPError as e:
-            except (Exception, urllib.error.ContentTooShortError) as e:
-                wait = retries * 30;
-                print(f'Error! Waiting {wait} secs and re-trying...')
-                sys.stdout.flush()
-                time.sleep(wait)
-                retries += 1
-"""
-
-
-def fetch(csv, output_dir, id_df_path, ps=0.13):
+def fetch(csv, output_dir, id_df_path, ps=0.27): # same ps as DECam
     os.makedirs(output_dir, exist_ok=True)
     df = pd.read_csv(csv)
 
@@ -71,7 +35,11 @@ def fetch(csv, output_dir, id_df_path, ps=0.13):
                 os.remove(os.path.join(output_dir, candidate))
                 print(f'redownloading ra={ra}, dec={dec}')
                 legacy_survey = f'https://www.legacysurvey.org/viewer/cutout.fits?ra={ra}&dec={dec}&layer=ls-dr8&pixscale={ps}'
-                urlretrieve(legacy_survey, os.path.join(output_dir, candidate))
+                try:
+                  urllib.request.urlretrieve(legacy_survey, os.path.join(output_dir, candidate))
+                except urllib.error.HTTPError as e:
+                  print(e)
+                  continue
 
                 id_df.loc[i, 'name'] = candidate
                 id_df.loc[i, 'label'] = label
@@ -84,7 +52,12 @@ def fetch(csv, output_dir, id_df_path, ps=0.13):
         else:           
             print(f'downloading ra={ra}, dec={dec}')
             legacy_survey = f'https://www.legacysurvey.org/viewer/cutout.fits?ra={ra}&dec={dec}&layer=ls-dr8&pixscale={ps}'
-            urlretrieve(legacy_survey, os.path.join(output_dir, candidate))
+            print(legacy_survey)
+            try:
+              urllib.request.urlretrieve(legacy_survey, os.path.join(output_dir, candidate))
+            except urllib.error.HTTPError as e:
+              print(e)
+              continue
 
             id_df.loc[i, 'name'] = candidate
             id_df.loc[i, 'label'] = label
@@ -92,10 +65,22 @@ def fetch(csv, output_dir, id_df_path, ps=0.13):
             id_df['label'] = id_df['label'].astype(int)
             id_df.to_csv(id_df_path, index=False)
             print('csv saved')
-        
-
+   
+# an example of how to use it:     
+"""
 if __name__ ==  '__main__':
     train = '/content/drive/My Drive/Deepfuse/data/train.csv'
-    train_dir = '/content/drive/My Drive/Deepfuse/data/train'
+    train_dir = '/content/drive/My Drive/Deepfuse/data/train-ps'
 
-    fetch(train, train_dir, '/content/drive/My Drive/Deepfuse/data/id-train.csv')
+    fetch(train, train_dir, '/content/drive/My Drive/Deepfuse/data/id-train-ps.csv', ps=0.27)
+
+    val = '/content/drive/My Drive/Deepfuse/data/val.csv'
+    val_dir = '/content/drive/My Drive/Deepfuse/data/val-ps'
+
+    fetch(val, val_dir, '/content/drive/My Drive/Deepfuse/data/id-val-ps.csv', ps=0.27)
+
+    test = '/content/drive/My Drive/Deepfuse/data/test.csv'
+    test_dir = '/content/drive/My Drive/Deepfuse/data/test-ps'
+
+    fetch(test, test_dir, '/content/drive/My Drive/Deepfuse/data/id-test-ps.csv', ps=0.27)
+"""
